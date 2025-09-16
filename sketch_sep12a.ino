@@ -208,7 +208,7 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
             --btn-debug-on: #2d7327;
             --btn-debug-off: #6c7aa0;
             --led-off: #5a5a5a;
-            --led-on: #e53e3e;
+            --led-on: #3ee54c;
         }
 
         body {
@@ -382,7 +382,6 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
 
 <body>
     <div class="container">
-
         <div class="card">
             <h3>Outputs</h3>
             <div class="btn-grid">
@@ -416,7 +415,11 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
         </div>
 
         <div class="card">
-            <h3>Console Log</h3>
+            <div class="btn-grid" style="margin-top: 0;">
+                <h3>Console Log</h3>
+                <button class="output-btn" style="width: 70%; margin: 0 0; height: 85%;" onclick="SaveLogs()">Save
+                    Logs</button>
+            </div>
             <div id="consoleLog" class="log-box">
                 <div id="log"></div>
             </div>
@@ -429,7 +432,6 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
                 <button id="readBtn" class="r-btn off" onclick="startRead()">READ</button>
                 <button id="ledBtn" class="r-btn off" onclick="toggleLED()">LED</button>
             </div>
-            <h3>LED Status</h3>
             <div class="led-grid" id="ledGrid"></div>
         </div>
     </div>
@@ -497,16 +499,45 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
             try {
                 const res = await fetch('/log');
                 const text = await res.text();
+
                 const logEl = document.getElementById('log');
-                const isAtBottom = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 5;
+                const scrollContainer = document.getElementById('consoleLog');
+
                 logEl.innerText += "\n" + text;
-                if (isAtBottom) {
-                    logEl.scrollTop = logEl.scrollHeight;
-                }
+
+                // Scroll the actual scrollable container
+                scrollContainer.scrollTop = scrollContainer.scrollHeight;
+
             } catch (e) {
-                document.getElementById('log').textContent += "\nLog disconnected";
+                const logEl = document.getElementById('log');
+                const scrollContainer = document.getElementById('consoleLog');
+
+                logEl.textContent += "\nLog disconnected";
+                scrollContainer.scrollTop = scrollContainer.scrollHeight;
             }
         }
+
+        function SaveLogs() {
+            const logElement = document.getElementById('log');
+            const logs = logElement.innerText.trim();
+
+            if (!logs) {
+                alert("No logs to save.");
+                return;
+            }
+
+            const blob = new Blob([logs], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `console_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url); // Cleanup
+        }
+
 
         async function startRead() {
             try {
@@ -515,7 +546,7 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
                 if (setReadStatus) {
                     btn.classList.add('on');
                     btn.textContent = "STOP";
-                    readInterval = setInterval(sendReadCommand, 1000);
+                    readInterval = setInterval(sendReadCommand, 100);
                 } else {
                     btn.classList.remove('on');
                     btn.textContent = "READ";
@@ -581,11 +612,10 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
             createLedElements();
             updateDebugButton();
             refreshLedStatus();
-            //updateStatus(); // Note: The old updateStatus function is not in the provided code snippet
             updateLog();
         };
 
-        setInterval(refreshLedStatus, 1000);
+        setInterval(refreshLedStatus, 100);
         setInterval(updateLog, 1000);
     </script>
 </body>
