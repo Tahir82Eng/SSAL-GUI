@@ -443,6 +443,11 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
         let setReadStatus = false;
         let readInterval = null;
 
+        let isSavingLogs = false;
+        let saveLogInterval = null;
+        let logBuffer = [];
+        let lastLogLength = 0;
+
         async function toggleLED() {
             try {
                 const btn = document.getElementById("ledBtn");
@@ -517,27 +522,78 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
             }
         }
 
+        // Saving Logs on clicking the button and Downloading the file
+
+        // function SaveLogs() {
+        //     const logElement = document.getElementById('log');
+        //     const logs = logElement.innerText.trim();
+
+        //     if (!logs) {
+        //         alert("No logs to save.");
+        //         return;
+        //     }
+
+        //     const blob = new Blob([logs], { type: 'text/plain' });
+        //     const url = URL.createObjectURL(blob);
+
+        //     const link = document.createElement('a');
+        //     link.href = url;
+        //     link.download = `console_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+        //     document.body.appendChild(link);
+        //     link.click();
+        //     document.body.removeChild(link);
+        //     URL.revokeObjectURL(url); // Cleanup
+        // }
+
+
+        // Saving the File on the duration (Buffer)
+
         function SaveLogs() {
-            const logElement = document.getElementById('log');
-            const logs = logElement.innerText.trim();
+            const button = document.querySelector('button[onclick="SaveLogs()"]');
 
-            if (!logs) {
-                alert("No logs to save.");
-                return;
+            if (!isSavingLogs) {
+                // Start saving logs
+                logBuffer = [];
+                isSavingLogs = true;
+                lastLogLength = 0;
+                button.textContent = "Stop Saving Logs";
+
+                saveLogInterval = setInterval(() => {
+                    const logElement = document.getElementById('log');
+                    const fullLogs = logElement.innerText.trim().split('\n');
+
+                    // Get only new lines since lastLogLength
+                    const newLines = fullLogs.slice(lastLogLength);
+                    lastLogLength = fullLogs.length;
+
+                    if (newLines.length > 0) {
+                        logBuffer.push(...newLines.map(line => `[${new Date().toLocaleTimeString()}] ${line}`));
+                    }
+                }, 1000);
+
+            } else {
+                // Stop saving and download the file
+                isSavingLogs = false;
+                clearInterval(saveLogInterval);
+                button.textContent = "Save Logs";
+
+                if (logBuffer.length === 0) {
+                    alert("No logs were captured.");
+                    return;
+                }
+
+                const blob = new Blob([logBuffer.join('\n')], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `console_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
             }
-
-            const blob = new Blob([logs], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `console_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url); // Cleanup
         }
-
 
         async function startRead() {
             try {
@@ -635,13 +691,24 @@ void handleRoot() {
   server.send(200, "text/html", HTML_PAGE);
 }
 
+void blinkConnectionLED(int times = 1, int delayMs = 100) {
+  for (int i = 0; i < times; i++) {
+    digitalWrite(LED_PIN, HIGH);
+    delay(delayMs);
+    digitalWrite(LED_PIN, LOW);
+    delay(delayMs);
+  }
+}
+
 void handleLedOn() {
   digitalWrite(LED_PIN, HIGH);
+  blinkConnectionLED();
   server.send(200, "text/plain", "OK");
 }
 
 void handleLedOff() {
   digitalWrite(LED_PIN, LOW);
+  blinkConnectionLED();
   server.send(200, "text/plain", "OK");
 }
 
@@ -719,6 +786,7 @@ void handleOutputOff() {
 
 void handleRead() {
   Inputs_Cal();
+  blinkConnectionLED();
   server.send(200, "text/plain", "Read Command Sent, check Serial Monitor");
 
   readTempData();  // always check Serial2
