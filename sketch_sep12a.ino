@@ -381,8 +381,6 @@ const char HTML_PAGE[] PROGMEM = R"rawliteral(
 </head>
 
 <body>
-    <h1>SSAL GUI</h1>
-
     <div class="container">
 
         <div class="card">
